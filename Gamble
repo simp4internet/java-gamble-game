@@ -1,0 +1,117 @@
+import java.util.Random;
+import java.util.Scanner;
+
+public class gamble {
+    public static void main(String[] args) {
+
+        Scanner scanner = new Scanner(System.in);
+        Random random = new Random();
+        
+        String name;
+        int age;
+        double balance;
+
+        System.out.println("\n=====$$$$$=====");
+
+        System.out.print("Enter your name: ");
+        name = scanner.nextLine();
+
+        System.out.print("Enter your age: ");
+        age = scanner.nextInt();
+
+        //check if player is 18+
+        if(age < 18){
+            System.out.println("You are not eligible.");
+            System.out.println("Registration rejected.");
+            return;
+        }
+        System.out.println("Welcome " + name );
+        System.out.println("Registration successful!");
+
+        System.out.print("Please make a withdrawal before you begin playing: $");
+        balance = scanner.nextDouble();
+        System.out.println("Your current balance is: $" + balance);
+
+        boolean playing = true;
+        while (playing) {
+            System.out.println("Here we have...");
+            System.out.println("1. Roll a Dice");
+            System.out.println("2. Flip a Coin");
+            System.out.println("3. Quit");
+            System.out.print("Which bet do you want to go with?: ");
+
+            int choice = scanner.nextInt();
+
+            switch (choice) {
+                case 1:
+                    System.out.println("$$$ Roll a Dice $$$");
+                    int number1 = random.nextInt(1, 7);
+                    int number2 = random.nextInt(1, 7);
+                    int number3 = random.nextInt(1, 7);
+
+                    System.out.println("You rolled: " + number1 + ", " + number2 + ", " + number3);
+                    
+                    int max = Math.max(number1, Math.max(number2, number3));
+                    int min = Math.min(number1, Math.min(number2, number3));
+
+                    if (number1 == 6 && number2 == 6 && number3 == 6 ) {
+
+                        double prize =  100;
+                        balance += prize;
+                        System.out.println("BIG WIN! You win $" + prize);
+                    }
+                    else if (number1 == number2 && number2 == number3){
+                        double prize = 50;
+                        balance += prize;
+                        System.out.println("Triple Match! You win $" + prize);
+                    }
+                    else if (number1 == number2 || number2 == number3 || number1 == number3 ){
+                        double prize = 10;
+                        balance += prize;
+                        System.out.println("Double Match! You win $" + prize);
+                    }
+                    else if (max - min == 2) {
+                    //Straight (contoh 2,3,4 atau 5,3,4, ikut sebarang susunan)
+                        double prize = 20;
+                        balance += prize;
+                        System.out.println("Straight! You win $" + prize);
+                    }
+                    else {
+                    
+                        double penalty = 10;
+                        balance -= penalty;
+                        System.out.println("You lose $" + penalty);
+                    }
+                        System.out.println("Your current balance is: $" + balance);
+                    break;
+
+                    case 2:
+                        double win = 5;
+                        double lose = 10;
+                        System.out.println("$$$ Flip a Coin $$$, (Head = +$5 , Tails = -$10)");
+                        boolean isHeads = random.nextBoolean();
+                        if(isHeads){
+                            balance += win;
+                            System.out.println("Heads");
+                            System.out.println("You win $" + win);
+                        }
+                        else{
+                            balance -= lose;
+                            System.out.println("Tails");
+                            System.out.println("You loss $" + lose);
+                        }
+                        break;
+                    case 3:
+                        System.out.println("Thanks for playing, " + name + "!");
+                        System.out.println("Final balance: $" + balance);
+                        playing = false;
+                        break;
+                    default:
+                        System.out.println("Invalid choice. Please enter 1, 2 or 3.");
+
+            }        
+        }
+
+        scanner.close();
+    }
+}
