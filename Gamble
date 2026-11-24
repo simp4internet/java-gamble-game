@@ -1,117 +1,709 @@
+import java.awt.*;
+import java.awt.event.*;
+import java.awt.geom.*;
 import java.util.Random;
-import java.util.Scanner;
+import javax.swing.*;
 
-public class gamble {
-    public static void main(String[] args) {
+public class Gamble extends JFrame {
 
-        Scanner scanner = new Scanner(System.in);
-        Random random = new Random();
-        
-        String name;
+    // ===== Warna tema =====
+    static final Color BG = new Color(18, 22, 36);
+    static final Color CARD = new Color(30, 36, 56);
+    static final Color GOLD = new Color(255, 196, 0);
+    static final Color GREEN = new Color(46, 204, 113);
+    static final Color RED = new Color(231, 76, 60);
+    static final Color TEXT = new Color(235, 238, 250);
+    static final Color MUTED = new Color(150, 158, 185);
+
+    final Random random = new Random();
+
+    // ===== State permainan =====
+    String name;
+    double balance, startBalance, displayedBalance;
+    int rounds, wins, losses;
+    double biggestWin;
+    boolean busy = false;
+
+    // ===== Komponen =====
+    final CardLayout rootLayout = new CardLayout();
+    final JPanel root = new JPanel(rootLayout);
+
+    JTextField nameField, ageField, depositField;
+    JLabel regError;
+
+    JLabel balanceLabel, messageLabel;
+    JTextField betField;
+    JButton rollBtn, flipBtn, quitBtn, halfBtn, maxBtn;
+    JToggleButton diceNav, coinNav;
+    JRadioButton headsBtn, tailsBtn;
+    CardLayout gameLayout = new CardLayout();
+    JPanel gameCards = new JPanel(gameLayout);
+    DiePanel[] dice = new DiePanel[3];
+    CoinPanel coin = new CoinPanel();
+
+    // =====================================================
+    //  Panel lukisan: DADU
+    // =====================================================
+    static class DiePanel extends JPanel {
+        int value = 1;
+        boolean locked = true;
+
+        DiePanel() {
+            setPreferredSize(new Dimension(110, 110));
+            setOpaque(false);
+        }
+
+        void setValue(int v, boolean locked) {
+            this.value = v;
+            this.locked = locked;
+            repaint();
+        }
+
+        static final double[][][] PIPS = {
+            {},
+            {{0.5, 0.5}},
+            {{0.25, 0.25}, {0.75, 0.75}},
+            {{0.25, 0.25}, {0.5, 0.5}, {0.75, 0.75}},
+            {{0.25, 0.25}, {0.75, 0.25}, {0.25, 0.75}, {0.75, 0.75}},
+            {{0.25, 0.25}, {0.75, 0.25}, {0.5, 0.5}, {0.25, 0.75}, {0.75, 0.75}},
+            {{0.25, 0.25}, {0.75, 0.25}, {0.25, 0.5}, {0.75, 0.5}, {0.25, 0.75}, {0.75, 0.75}}
+        };
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            int s = Math.min(getWidth(), getHeight()) - 12;
+            int x = (getWidth() - s) / 2;
+            int y = (getHeight() - s) / 2;
+
+            // bayang
+            g2.setColor(new Color(0, 0, 0, 80));
+            g2.fillRoundRect(x + 4, y + 6, s, s, 26, 26);
+            // badan dadu
+            g2.setColor(locked ? Color.WHITE : new Color(215, 218, 232));
+            g2.fillRoundRect(x, y, s, s, 26, 26);
+            g2.setStroke(new BasicStroke(3f));
+            g2.setColor(locked ? GOLD : new Color(140, 145, 165));
+            g2.drawRoundRect(x, y, s, s, 26, 26);
+            // titik
+            g2.setColor(new Color(25, 28, 45));
+            int r = Math.max(5, s / 11);
+            for (double[] p : PIPS[value]) {
+                int cx = x + (int) (p[0] * s);
+                int cy = y + (int) (p[1] * s);
+                g2.fillOval(cx - r, cy - r, r * 2, r * 2);
+            }
+            g2.dispose();
+        }
+    }
+
+    // =====================================================
+    //  Panel lukisan: SYILING (berpusing)
+    // =====================================================
+    static class CoinPanel extends JPanel {
+        double scaleX = 1;
+        double yOffset = 0;
+        boolean heads = true;
+
+        CoinPanel() {
+            setPreferredSize(new Dimension(220, 250));
+            setOpaque(false);
+        }
+
+        void setState(double angle, double yOffset) {
+            double c = Math.cos(angle);
+            this.scaleX = Math.max(0.04, Math.abs(c));
+            this.heads = c >= 0;
+            this.yOffset = yOffset;
+            repaint();
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+            int cx = getWidth() / 2;
+            int groundY = getHeight() - 30;
+            int cy = groundY - 70 + (int) yOffset;
+            int r = 55;
+
+            // bayang atas lantai (mengecil bila syiling naik)
+            double lift = Math.min(1, Math.abs(yOffset) / 70.0);
+            int sw = (int) (r * 1.6 * (1 - 0.45 * lift));
+            g2.setColor(new Color(0, 0, 0, (int) (90 - 50 * lift)));
+            g2.fillOval(cx - sw, groundY - 6, sw * 2, 14);
+
+            AffineTransform old = g2.getTransform();
+            g2.translate(cx, cy);
+            g2.scale(scaleX, 1);
+
+            g2.setPaint(new GradientPaint(-r, -r, new Color(255, 225, 90), r, r, new Color(214, 150, 0)));
+            g2.fillOval(-r, -r, r * 2, r * 2);
+            g2.setStroke(new BasicStroke(5f));
+            g2.setColor(new Color(150, 100, 0));
+            g2.drawOval(-r, -r, r * 2, r * 2);
+            g2.setStroke(new BasicStroke(2f));
+            g2.setColor(new Color(255, 240, 160));
+            g2.drawOval(-r + 9, -r + 9, (r - 9) * 2, (r - 9) * 2);
+
+            g2.setFont(new Font("SansSerif", Font.BOLD, 54));
+            FontMetrics fm = g2.getFontMetrics();
+            String s = heads ? "H" : "T";
+            g2.setColor(new Color(130, 85, 0));
+            g2.drawString(s, -fm.stringWidth(s) / 2, fm.getAscent() / 2 - 4);
+
+            g2.setTransform(old);
+            g2.dispose();
+        }
+    }
+
+    // =====================================================
+    //  Helper UI
+    // =====================================================
+    static JLabel label(String text, int size, Color color, boolean bold) {
+        JLabel l = new JLabel(text);
+        l.setFont(new Font("SansSerif", bold ? Font.BOLD : Font.PLAIN, size));
+        l.setForeground(color);
+        return l;
+    }
+
+    static JButton button(String text, Color bg, Color fg) {
+        JButton b = new JButton(text);
+        b.setFont(new Font("SansSerif", Font.BOLD, 15));
+        b.setBackground(bg);
+        b.setForeground(fg);
+        b.setOpaque(true);
+        b.setFocusPainted(false);
+        b.setBorder(BorderFactory.createEmptyBorder(10, 22, 10, 22));
+        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        return b;
+    }
+
+    static JTextField field(int cols) {
+        JTextField f = new JTextField(cols);
+        f.setFont(new Font("SansSerif", Font.PLAIN, 16));
+        f.setBackground(CARD);
+        f.setForeground(TEXT);
+        f.setCaretColor(GOLD);
+        f.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(60, 70, 100)),
+                BorderFactory.createEmptyBorder(6, 8, 6, 8)));
+        return f;
+    }
+
+    static String money(double v) {
+        return String.format("$%.2f", v);
+    }
+
+    // =====================================================
+    //  Constructor
+    // =====================================================
+    public Gamble() {
+        super("$$$ Gamble $$$");
+        root.setBackground(BG);
+        root.add(buildRegistration(), "reg");
+        root.add(buildGame(), "game");
+        setContentPane(root);
+        setSize(560, 720);
+        setMinimumSize(new Dimension(520, 700));
+        setLocationRelativeTo(null);
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
+    }
+
+    // ---------- Skrin pendaftaran ----------
+    JPanel buildRegistration() {
+        JPanel p = new JPanel(new GridBagLayout());
+        p.setBackground(BG);
+
+        JPanel box = new JPanel();
+        box.setLayout(new BoxLayout(box, BoxLayout.Y_AXIS));
+        box.setBackground(CARD);
+        box.setBorder(BorderFactory.createEmptyBorder(30, 40, 30, 40));
+
+        JLabel title = label("$$$ GAMBLE $$$", 30, GOLD, true);
+        title.setAlignmentX(CENTER_ALIGNMENT);
+        JLabel sub = label("Registration (18+ only)", 14, MUTED, false);
+        sub.setAlignmentX(CENTER_ALIGNMENT);
+
+        nameField = field(18);
+        ageField = field(18);
+        depositField = field(18);
+        regError = label(" ", 13, RED, false);
+        regError.setAlignmentX(CENTER_ALIGNMENT);
+
+        JButton start = button("START", GOLD, new Color(40, 30, 0));
+        start.setAlignmentX(CENTER_ALIGNMENT);
+        start.addActionListener(e -> startGame());
+        ActionListener enter = e -> startGame();
+        nameField.addActionListener(enter);
+        ageField.addActionListener(enter);
+        depositField.addActionListener(enter);
+
+        box.add(title);
+        box.add(Box.createVerticalStrut(4));
+        box.add(sub);
+        box.add(Box.createVerticalStrut(22));
+        addRow(box, "Name", nameField);
+        addRow(box, "Age", ageField);
+        addRow(box, "Deposit ($)", depositField);
+        box.add(Box.createVerticalStrut(6));
+        box.add(regError);
+        box.add(Box.createVerticalStrut(14));
+        box.add(start);
+
+        p.add(box);
+        return p;
+    }
+
+    void addRow(JPanel parent, String text, JTextField f) {
+        JLabel l = label(text, 13, MUTED, false);
+        l.setAlignmentX(CENTER_ALIGNMENT);
+        f.setAlignmentX(CENTER_ALIGNMENT);
+        f.setHorizontalAlignment(JTextField.CENTER);
+        f.setMaximumSize(new Dimension(260, 38));
+        parent.add(l);
+        parent.add(Box.createVerticalStrut(4));
+        parent.add(f);
+        parent.add(Box.createVerticalStrut(12));
+    }
+
+    void startGame() {
+        String n = nameField.getText().trim();
+        if (n.isEmpty()) n = "Player";
+
         int age;
-        double balance;
-
-        System.out.println("\n=====$$$$$=====");
-
-        System.out.print("Enter your name: ");
-        name = scanner.nextLine();
-
-        System.out.print("Enter your age: ");
-        age = scanner.nextInt();
-
-        //check if player is 18+
-        if(age < 18){
-            System.out.println("You are not eligible.");
-            System.out.println("Registration rejected.");
+        try {
+            age = Integer.parseInt(ageField.getText().trim());
+        } catch (NumberFormatException ex) {
+            regError.setText("Please enter a valid age.");
             return;
         }
-        System.out.println("Welcome " + name );
-        System.out.println("Registration successful!");
-
-        System.out.print("Please make a withdrawal before you begin playing: $");
-        balance = scanner.nextDouble();
-        System.out.println("Your current balance is: $" + balance);
-
-        boolean playing = true;
-        while (playing) {
-            System.out.println("Here we have...");
-            System.out.println("1. Roll a Dice");
-            System.out.println("2. Flip a Coin");
-            System.out.println("3. Quit");
-            System.out.print("Which bet do you want to go with?: ");
-
-            int choice = scanner.nextInt();
-
-            switch (choice) {
-                case 1:
-                    System.out.println("$$$ Roll a Dice $$$");
-                    int number1 = random.nextInt(1, 7);
-                    int number2 = random.nextInt(1, 7);
-                    int number3 = random.nextInt(1, 7);
-
-                    System.out.println("You rolled: " + number1 + ", " + number2 + ", " + number3);
-                    
-                    int max = Math.max(number1, Math.max(number2, number3));
-                    int min = Math.min(number1, Math.min(number2, number3));
-
-                    if (number1 == 6 && number2 == 6 && number3 == 6 ) {
-
-                        double prize =  100;
-                        balance += prize;
-                        System.out.println("BIG WIN! You win $" + prize);
-                    }
-                    else if (number1 == number2 && number2 == number3){
-                        double prize = 50;
-                        balance += prize;
-                        System.out.println("Triple Match! You win $" + prize);
-                    }
-                    else if (number1 == number2 || number2 == number3 || number1 == number3 ){
-                        double prize = 10;
-                        balance += prize;
-                        System.out.println("Double Match! You win $" + prize);
-                    }
-                    else if (max - min == 2) {
-                    //Straight (contoh 2,3,4 atau 5,3,4, ikut sebarang susunan)
-                        double prize = 20;
-                        balance += prize;
-                        System.out.println("Straight! You win $" + prize);
-                    }
-                    else {
-                    
-                        double penalty = 10;
-                        balance -= penalty;
-                        System.out.println("You lose $" + penalty);
-                    }
-                        System.out.println("Your current balance is: $" + balance);
-                    break;
-
-                    case 2:
-                        double win = 5;
-                        double lose = 10;
-                        System.out.println("$$$ Flip a Coin $$$, (Head = +$5 , Tails = -$10)");
-                        boolean isHeads = random.nextBoolean();
-                        if(isHeads){
-                            balance += win;
-                            System.out.println("Heads");
-                            System.out.println("You win $" + win);
-                        }
-                        else{
-                            balance -= lose;
-                            System.out.println("Tails");
-                            System.out.println("You loss $" + lose);
-                        }
-                        break;
-                    case 3:
-                        System.out.println("Thanks for playing, " + name + "!");
-                        System.out.println("Final balance: $" + balance);
-                        playing = false;
-                        break;
-                    default:
-                        System.out.println("Invalid choice. Please enter 1, 2 or 3.");
-
-            }        
+        if (age < 18) {
+            regError.setText("You are not eligible. Registration rejected.");
+            return;
         }
 
-        scanner.close();
+        double dep;
+        try {
+            dep = Double.parseDouble(depositField.getText().trim());
+        } catch (NumberFormatException ex) {
+            regError.setText("Please enter a valid deposit amount.");
+            return;
+        }
+        if (dep < 1 || dep > 10000) {
+            regError.setText("Deposit must be between $1 and $10,000.");
+            return;
+        }
+
+        name = n;
+        balance = Math.round(dep * 100) / 100.0;
+        startBalance = balance;
+        displayedBalance = balance;
+        rounds = wins = losses = 0;
+        biggestWin = 0;
+        regError.setText(" ");
+
+        balanceLabel.setText(money(balance));
+        balanceLabel.setForeground(GOLD);
+        setMessage("Welcome " + name + "! Place your bet.", TEXT);
+        betField.setText("10");
+        setBusy(false);
+        rootLayout.show(root, "game");
+    }
+
+    // ---------- Skrin permainan ----------
+    JPanel buildGame() {
+        JPanel p = new JPanel(new BorderLayout(0, 10));
+        p.setBackground(BG);
+        p.setBorder(BorderFactory.createEmptyBorder(16, 20, 16, 20));
+
+        // Header baki
+        JPanel header = new JPanel();
+        header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
+        header.setBackground(CARD);
+        header.setBorder(BorderFactory.createEmptyBorder(10, 10, 12, 10));
+        JLabel bl = label("BALANCE", 12, MUTED, true);
+        bl.setAlignmentX(CENTER_ALIGNMENT);
+        balanceLabel = label("$0.00", 40, GOLD, true);
+        balanceLabel.setAlignmentX(CENTER_ALIGNMENT);
+        header.add(bl);
+        header.add(balanceLabel);
+        p.add(header, BorderLayout.NORTH);
+
+        // Tengah: nav + permainan
+        JPanel center = new JPanel(new BorderLayout(0, 8));
+        center.setBackground(BG);
+
+        JPanel nav = new JPanel(new GridLayout(1, 2, 8, 0));
+        nav.setBackground(BG);
+        diceNav = new JToggleButton("Roll a Dice", true);
+        coinNav = new JToggleButton("Flip a Coin");
+        ButtonGroup bg = new ButtonGroup();
+        bg.add(diceNav);
+        bg.add(coinNav);
+        for (JToggleButton t : new JToggleButton[]{diceNav, coinNav}) {
+            t.setFont(new Font("SansSerif", Font.BOLD, 14));
+            t.setFocusPainted(false);
+            t.setBackground(CARD);
+            t.setForeground(TEXT);
+            t.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+            t.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            nav.add(t);
+        }
+        diceNav.addActionListener(e -> gameLayout.show(gameCards, "dice"));
+        coinNav.addActionListener(e -> gameLayout.show(gameCards, "coin"));
+        center.add(nav, BorderLayout.NORTH);
+
+        gameCards.setBackground(BG);
+        gameCards.add(buildDicePanel(), "dice");
+        gameCards.add(buildCoinPanel(), "coin");
+        center.add(gameCards, BorderLayout.CENTER);
+        p.add(center, BorderLayout.CENTER);
+
+        // Bawah: bet + mesej + quit
+        JPanel south = new JPanel();
+        south.setLayout(new BoxLayout(south, BoxLayout.Y_AXIS));
+        south.setBackground(BG);
+
+        JPanel betRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 0));
+        betRow.setBackground(BG);
+        betRow.add(label("Bet $", 16, TEXT, true));
+        betField = field(8);
+        betField.setHorizontalAlignment(JTextField.CENTER);
+        halfBtn = button("1/2", CARD, TEXT);
+        maxBtn = button("MAX", CARD, TEXT);
+        halfBtn.setBorder(BorderFactory.createEmptyBorder(8, 14, 8, 14));
+        maxBtn.setBorder(BorderFactory.createEmptyBorder(8, 14, 8, 14));
+        halfBtn.addActionListener(e -> betField.setText(String.format("%.2f", Math.max(0.01, balance / 2))));
+        maxBtn.addActionListener(e -> betField.setText(String.format("%.2f", balance)));
+        betRow.add(betField);
+        betRow.add(halfBtn);
+        betRow.add(maxBtn);
+
+        messageLabel = label(" ", 16, TEXT, true);
+        messageLabel.setAlignmentX(CENTER_ALIGNMENT);
+
+        quitBtn = button("Quit & Cash Out", new Color(60, 70, 100), TEXT);
+        quitBtn.setAlignmentX(CENTER_ALIGNMENT);
+        quitBtn.addActionListener(e -> quit());
+
+        south.add(betRow);
+        south.add(Box.createVerticalStrut(12));
+        south.add(messageLabel);
+        south.add(Box.createVerticalStrut(12));
+        south.add(quitBtn);
+        p.add(south, BorderLayout.SOUTH);
+
+        return p;
+    }
+
+    JPanel buildDicePanel() {
+        JPanel p = new JPanel(new BorderLayout());
+        p.setBackground(BG);
+
+        JPanel diceRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 14, 0));
+        diceRow.setBackground(BG);
+        for (int i = 0; i < 3; i++) {
+            dice[i] = new DiePanel();
+            dice[i].setValue(i + 1, true);
+            diceRow.add(dice[i]);
+        }
+        JPanel mid = new JPanel(new GridBagLayout());
+        mid.setBackground(BG);
+        mid.add(diceRow);
+        p.add(mid, BorderLayout.CENTER);
+
+        JPanel bottom = new JPanel();
+        bottom.setLayout(new BoxLayout(bottom, BoxLayout.Y_AXIS));
+        bottom.setBackground(BG);
+        JLabel payout = label("<html><center>6-6-6 = x10 &nbsp;|&nbsp; Triple = x5 &nbsp;|&nbsp; Straight = x1<br>"
+                + "Double = x0.25 &nbsp;|&nbsp; Otherwise = lose bet</center></html>", 12, MUTED, false);
+        payout.setAlignmentX(CENTER_ALIGNMENT);
+        rollBtn = button("ROLL", GOLD, new Color(40, 30, 0));
+        rollBtn.setAlignmentX(CENTER_ALIGNMENT);
+        rollBtn.addActionListener(e -> rollDice());
+        bottom.add(payout);
+        bottom.add(Box.createVerticalStrut(10));
+        bottom.add(rollBtn);
+        p.add(bottom, BorderLayout.SOUTH);
+        return p;
+    }
+
+    JPanel buildCoinPanel() {
+        JPanel p = new JPanel(new BorderLayout());
+        p.setBackground(BG);
+
+        JPanel mid = new JPanel(new GridBagLayout());
+        mid.setBackground(BG);
+        mid.add(coin);
+        p.add(mid, BorderLayout.CENTER);
+
+        JPanel bottom = new JPanel();
+        bottom.setLayout(new BoxLayout(bottom, BoxLayout.Y_AXIS));
+        bottom.setBackground(BG);
+
+        JPanel pick = new JPanel(new FlowLayout(FlowLayout.CENTER, 14, 0));
+        pick.setBackground(BG);
+        headsBtn = new JRadioButton("Heads", true);
+        tailsBtn = new JRadioButton("Tails");
+        ButtonGroup g = new ButtonGroup();
+        g.add(headsBtn);
+        g.add(tailsBtn);
+        for (JRadioButton r : new JRadioButton[]{headsBtn, tailsBtn}) {
+            r.setBackground(BG);
+            r.setForeground(TEXT);
+            r.setFont(new Font("SansSerif", Font.BOLD, 15));
+            r.setFocusPainted(false);
+            pick.add(r);
+        }
+        pick.setAlignmentX(CENTER_ALIGNMENT);
+
+        flipBtn = button("FLIP", GOLD, new Color(40, 30, 0));
+        flipBtn.setAlignmentX(CENTER_ALIGNMENT);
+        flipBtn.addActionListener(e -> flipCoin());
+
+        JLabel rule = label("Win = +bet, Lose = -bet", 12, MUTED, false);
+        rule.setAlignmentX(CENTER_ALIGNMENT);
+        bottom.add(rule);
+        bottom.add(Box.createVerticalStrut(6));
+        bottom.add(pick);
+        bottom.add(Box.createVerticalStrut(8));
+        bottom.add(flipBtn);
+        p.add(bottom, BorderLayout.SOUTH);
+        return p;
+    }
+
+    // =====================================================
+    //  Logik permainan
+    // =====================================================
+    void setMessage(String text, Color c) {
+        messageLabel.setText(text);
+        messageLabel.setForeground(c);
+    }
+
+    void setBusy(boolean b) {
+        busy = b;
+        rollBtn.setEnabled(!b);
+        flipBtn.setEnabled(!b);
+        quitBtn.setEnabled(!b);
+        halfBtn.setEnabled(!b);
+        maxBtn.setEnabled(!b);
+        betField.setEnabled(!b);
+        diceNav.setEnabled(!b);
+        coinNav.setEnabled(!b);
+        headsBtn.setEnabled(!b);
+        tailsBtn.setEnabled(!b);
+    }
+
+    /** Baca & semak bet. Pulang null kalau tak sah. */
+    Double readBet() {
+        double bet;
+        try {
+            bet = Double.parseDouble(betField.getText().trim());
+        } catch (NumberFormatException ex) {
+            setMessage("Enter a valid bet amount.", RED);
+            return null;
+        }
+        bet = Math.round(bet * 100) / 100.0;
+        if (bet <= 0) {
+            setMessage("Bet must be more than $0.", RED);
+            return null;
+        }
+        if (bet > balance) {
+            setMessage("Bet cannot be more than your balance.", RED);
+            return null;
+        }
+        return bet;
+    }
+
+    // ----- Dadu dengan animasi -----
+    void rollDice() {
+        if (busy) return;
+        Double betObj = readBet();
+        if (betObj == null) return;
+        final double bet = betObj;
+
+        setBusy(true);
+        setMessage("Rolling...", MUTED);
+
+        final int[] fin = {random.nextInt(6) + 1, random.nextInt(6) + 1, random.nextInt(6) + 1};
+        for (DiePanel d : dice) d.setValue(random.nextInt(6) + 1, false);
+
+        final int[] tick = {0};
+        final Timer t = new Timer(70, null);
+        t.addActionListener(e -> {
+            tick[0]++;
+            for (int i = 0; i < 3; i++) {
+                int lockAt = 12 + i * 8; // dadu berhenti satu demi satu
+                if (tick[0] >= lockAt) {
+                    if (!dice[i].locked) dice[i].setValue(fin[i], true);
+                } else {
+                    dice[i].setValue(random.nextInt(6) + 1, false);
+                }
+            }
+            if (tick[0] >= 12 + 2 * 8) {
+                t.stop();
+                finishDice(fin, bet);
+            }
+        });
+        t.start();
+    }
+
+    void finishDice(int[] f, double bet) {
+        int n1 = f[0], n2 = f[1], n3 = f[2];
+        int max = Math.max(n1, Math.max(n2, n3));
+        int min = Math.min(n1, Math.min(n2, n3));
+
+        double multiplier;
+        String result;
+        if (n1 == 6 && n2 == 6 && n3 == 6) {
+            multiplier = 10;
+            result = "BIG WIN!";
+        } else if (n1 == n2 && n2 == n3) {
+            multiplier = 5;
+            result = "Triple Match!";
+        } else if (n1 == n2 || n2 == n3 || n1 == n3) {
+            multiplier = 0.25;
+            result = "Double Match!";
+        } else if (max - min == 2) {
+            multiplier = 1;
+            result = "Straight!";
+        } else {
+            applyResult(-bet, "No match. You lose " + money(bet));
+            return;
+        }
+        double prize = Math.round(bet * multiplier * 100) / 100.0;
+        applyResult(prize, result + " You win " + money(prize));
+    }
+
+    // ----- Syiling dengan animasi -----
+    void flipCoin() {
+        if (busy) return;
+        Double betObj = readBet();
+        if (betObj == null) return;
+        final double bet = betObj;
+
+        setBusy(true);
+        setMessage("Flipping...", MUTED);
+
+        final boolean pickHeads = headsBtn.isSelected();
+        final boolean resultHeads = random.nextBoolean();
+        // bilangan separuh-pusingan: genap = Heads, ganjil = Tails
+        final int halfTurns = resultHeads ? 8 : 9;
+        final int frames = 70;
+        final int[] f = {0};
+
+        final Timer t = new Timer(22, null);
+        t.addActionListener(e -> {
+            f[0]++;
+            double p = Math.min(1.0, (double) f[0] / frames);
+            double ease = 1 - Math.pow(1 - p, 2.2);       // perlahan di hujung
+            double angle = halfTurns * Math.PI * ease;
+            double lift = -Math.sin(p * Math.PI) * 70;      // melambung ke atas
+            coin.setState(angle, lift);
+            if (f[0] >= frames) {
+                t.stop();
+                coin.setState(halfTurns * Math.PI, 0);
+                if (pickHeads == resultHeads) {
+                    applyResult(bet, (resultHeads ? "Heads" : "Tails") + "! You win " + money(bet));
+                } else {
+                    applyResult(-bet, (resultHeads ? "Heads" : "Tails") + ". You lose " + money(bet));
+                }
+            }
+        });
+        t.start();
+    }
+
+    // ----- Kemas kini baki dengan animasi -----
+    void applyResult(double net, String message) {
+        balance = Math.round((balance + net) * 100) / 100.0;
+        rounds++;
+        if (net > 0) {
+            wins++;
+            if (net > biggestWin) biggestWin = net;
+        } else if (net < 0) {
+            losses++;
+        }
+        setMessage(message, net > 0 ? GREEN : (net < 0 ? RED : TEXT));
+
+        final double from = displayedBalance;
+        final double to = balance;
+        final Color flash = net >= 0 ? GREEN : RED;
+        balanceLabel.setForeground(flash);
+
+        final int steps = 30;
+        final int[] s = {0};
+        final Timer t = new Timer(20, null);
+        t.addActionListener(e -> {
+            s[0]++;
+            double p = (double) s[0] / steps;
+            double ease = 1 - Math.pow(1 - p, 3);
+            displayedBalance = from + (to - from) * ease;
+            balanceLabel.setText(money(displayedBalance));
+            if (s[0] >= steps) {
+                t.stop();
+                displayedBalance = to;
+                balanceLabel.setText(money(to));
+                balanceLabel.setForeground(GOLD);
+                roundFinished();
+            }
+        });
+        t.start();
+    }
+
+    void roundFinished() {
+        if (balance <= 0) {
+            JOptionPane.showMessageDialog(this,
+                    "You're out of money. Game over!\n\n" + summary(),
+                    "Game Over", JOptionPane.INFORMATION_MESSAGE);
+            backToRegistration();
+            return;
+        }
+        // jangan biarkan bet lebih daripada baki
+        try {
+            if (Double.parseDouble(betField.getText().trim()) > balance) {
+                betField.setText(String.format("%.2f", balance));
+            }
+        } catch (NumberFormatException ignored) {
+            betField.setText("10");
+        }
+        setBusy(false);
+    }
+
+    void quit() {
+        if (busy) return;
+        JOptionPane.showMessageDialog(this,
+                "Thanks for playing, " + name + "!\n\n" + summary(),
+                "Summary", JOptionPane.INFORMATION_MESSAGE);
+        backToRegistration();
+    }
+
+    String summary() {
+        double profit = balance - startBalance;
+        return "Rounds played : " + rounds + "\n"
+                + "Wins / Losses : " + wins + " / " + losses + "\n"
+                + "Biggest win   : " + money(biggestWin) + "\n"
+                + "Start balance : " + money(startBalance) + "\n"
+                + "Final balance : " + money(balance) + "\n"
+                + "Profit/Loss   : " + (profit >= 0 ? "+" : "-") + money(Math.abs(profit));
+    }
+
+    void backToRegistration() {
+        depositField.setText("");
+        regError.setText(" ");
+        rootLayout.show(root, "reg");
+    }
+
+    // =====================================================
+    public static void main(String[] args) {
+        try {
+            // Metal L&F supaya warna butang dihormati di semua OS
+            UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
+        } catch (Exception ignored) {
+        }
+        SwingUtilities.invokeLater(() -> new Gamble().setVisible(true));
     }
 }
