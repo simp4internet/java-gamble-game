@@ -6,7 +6,6 @@ import javax.swing.*;
 
 public class Gamble extends JFrame {
 
-    // ===== Warna tema =====
     static final Color BG = new Color(18, 22, 36);
     static final Color CARD = new Color(30, 36, 56);
     static final Color GOLD = new Color(255, 196, 0);
@@ -17,14 +16,12 @@ public class Gamble extends JFrame {
 
     final Random random = new Random();
 
-    // ===== State permainan =====
     String name;
     double balance, startBalance, displayedBalance;
     int rounds, wins, losses;
     double biggestWin;
     boolean busy = false;
 
-    // ===== Komponen =====
     final CardLayout rootLayout = new CardLayout();
     final JPanel root = new JPanel(rootLayout);
 
@@ -41,9 +38,6 @@ public class Gamble extends JFrame {
     DiePanel[] dice = new DiePanel[3];
     CoinPanel coin = new CoinPanel();
 
-    // =====================================================
-    //  Panel lukisan: DADU
-    // =====================================================
     static class DiePanel extends JPanel {
         int value = 1;
         boolean locked = true;
@@ -77,16 +71,13 @@ public class Gamble extends JFrame {
             int x = (getWidth() - s) / 2;
             int y = (getHeight() - s) / 2;
 
-            // bayang
             g2.setColor(new Color(0, 0, 0, 80));
             g2.fillRoundRect(x + 4, y + 6, s, s, 26, 26);
-            // badan dadu
             g2.setColor(locked ? Color.WHITE : new Color(215, 218, 232));
             g2.fillRoundRect(x, y, s, s, 26, 26);
             g2.setStroke(new BasicStroke(3f));
             g2.setColor(locked ? GOLD : new Color(140, 145, 165));
             g2.drawRoundRect(x, y, s, s, 26, 26);
-            // titik
             g2.setColor(new Color(25, 28, 45));
             int r = Math.max(5, s / 11);
             for (double[] p : PIPS[value]) {
@@ -98,9 +89,6 @@ public class Gamble extends JFrame {
         }
     }
 
-    // =====================================================
-    //  Panel lukisan: SYILING (berpusing)
-    // =====================================================
     static class CoinPanel extends JPanel {
         double scaleX = 1;
         double yOffset = 0;
@@ -130,7 +118,6 @@ public class Gamble extends JFrame {
             int cy = groundY - 70 + (int) yOffset;
             int r = 55;
 
-            // bayang atas lantai (mengecil bila syiling naik)
             double lift = Math.min(1, Math.abs(yOffset) / 70.0);
             int sw = (int) (r * 1.6 * (1 - 0.45 * lift));
             g2.setColor(new Color(0, 0, 0, (int) (90 - 50 * lift)));
@@ -160,9 +147,6 @@ public class Gamble extends JFrame {
         }
     }
 
-    // =====================================================
-    //  Helper UI
-    // =====================================================
     static JLabel label(String text, int size, Color color, boolean bold) {
         JLabel l = new JLabel(text);
         l.setFont(new Font("SansSerif", bold ? Font.BOLD : Font.PLAIN, size));
@@ -198,9 +182,6 @@ public class Gamble extends JFrame {
         return String.format("$%.2f", v);
     }
 
-    // =====================================================
-    //  Constructor
-    // =====================================================
     public Gamble() {
         super("$$$ Gamble $$$");
         root.setBackground(BG);
@@ -213,7 +194,6 @@ public class Gamble extends JFrame {
         setDefaultCloseOperation(EXIT_ON_CLOSE);
     }
 
-    // ---------- Skrin pendaftaran ----------
     JPanel buildRegistration() {
         JPanel p = new JPanel(new GridBagLayout());
         p.setBackground(BG);
@@ -314,13 +294,11 @@ public class Gamble extends JFrame {
         rootLayout.show(root, "game");
     }
 
-    // ---------- Skrin permainan ----------
     JPanel buildGame() {
         JPanel p = new JPanel(new BorderLayout(0, 10));
         p.setBackground(BG);
         p.setBorder(BorderFactory.createEmptyBorder(16, 20, 16, 20));
 
-        // Header baki
         JPanel header = new JPanel();
         header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
         header.setBackground(CARD);
@@ -333,7 +311,6 @@ public class Gamble extends JFrame {
         header.add(balanceLabel);
         p.add(header, BorderLayout.NORTH);
 
-        // Tengah: nav + permainan
         JPanel center = new JPanel(new BorderLayout(0, 8));
         center.setBackground(BG);
 
@@ -363,7 +340,6 @@ public class Gamble extends JFrame {
         center.add(gameCards, BorderLayout.CENTER);
         p.add(center, BorderLayout.CENTER);
 
-        // Bawah: bet + mesej + quit
         JPanel south = new JPanel();
         south.setLayout(new BoxLayout(south, BoxLayout.Y_AXIS));
         south.setBackground(BG);
@@ -476,9 +452,6 @@ public class Gamble extends JFrame {
         return p;
     }
 
-    // =====================================================
-    //  Logik permainan
-    // =====================================================
     void setMessage(String text, Color c) {
         messageLabel.setText(text);
         messageLabel.setForeground(c);
@@ -498,7 +471,6 @@ public class Gamble extends JFrame {
         tailsBtn.setEnabled(!b);
     }
 
-    /** Baca & semak bet. Pulang null kalau tak sah. */
     Double readBet() {
         double bet;
         try {
@@ -519,7 +491,6 @@ public class Gamble extends JFrame {
         return bet;
     }
 
-    // ----- Dadu dengan animasi -----
     void rollDice() {
         if (busy) return;
         Double betObj = readBet();
@@ -537,7 +508,7 @@ public class Gamble extends JFrame {
         t.addActionListener(e -> {
             tick[0]++;
             for (int i = 0; i < 3; i++) {
-                int lockAt = 12 + i * 8; // dadu berhenti satu demi satu
+                int lockAt = 12 + i * 8;
                 if (tick[0] >= lockAt) {
                     if (!dice[i].locked) dice[i].setValue(fin[i], true);
                 } else {
@@ -579,7 +550,6 @@ public class Gamble extends JFrame {
         applyResult(prize, result + " You win " + money(prize));
     }
 
-    // ----- Syiling dengan animasi -----
     void flipCoin() {
         if (busy) return;
         Double betObj = readBet();
@@ -591,7 +561,6 @@ public class Gamble extends JFrame {
 
         final boolean pickHeads = headsBtn.isSelected();
         final boolean resultHeads = random.nextBoolean();
-        // bilangan separuh-pusingan: genap = Heads, ganjil = Tails
         final int halfTurns = resultHeads ? 8 : 9;
         final int frames = 70;
         final int[] f = {0};
@@ -600,9 +569,9 @@ public class Gamble extends JFrame {
         t.addActionListener(e -> {
             f[0]++;
             double p = Math.min(1.0, (double) f[0] / frames);
-            double ease = 1 - Math.pow(1 - p, 2.2);       // perlahan di hujung
+            double ease = 1 - Math.pow(1 - p, 2.2);
             double angle = halfTurns * Math.PI * ease;
-            double lift = -Math.sin(p * Math.PI) * 70;      // melambung ke atas
+            double lift = -Math.sin(p * Math.PI) * 70;
             coin.setState(angle, lift);
             if (f[0] >= frames) {
                 t.stop();
@@ -617,7 +586,6 @@ public class Gamble extends JFrame {
         t.start();
     }
 
-    // ----- Kemas kini baki dengan animasi -----
     void applyResult(double net, String message) {
         balance = Math.round((balance + net) * 100) / 100.0;
         rounds++;
@@ -662,7 +630,6 @@ public class Gamble extends JFrame {
             backToRegistration();
             return;
         }
-        // jangan biarkan bet lebih daripada baki
         try {
             if (Double.parseDouble(betField.getText().trim()) > balance) {
                 betField.setText(String.format("%.2f", balance));
@@ -697,10 +664,8 @@ public class Gamble extends JFrame {
         rootLayout.show(root, "reg");
     }
 
-    // =====================================================
     public static void main(String[] args) {
         try {
-            // Metal L&F supaya warna butang dihormati di semua OS
             UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
         } catch (Exception ignored) {
         }
