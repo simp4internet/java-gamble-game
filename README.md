@@ -2,7 +2,7 @@
 
 A mini gambling game (dice and coin flip) built with Java. It comes in two versions: **console** and **GUI (Swing)** with animations.
 
-## ✨ Features
+## Features
 
 - Player registration with an age check (**18+ only**)
 - Starting deposit and **betting** system
@@ -76,17 +76,6 @@ Three dice are rolled. Results are checked in priority order (top to bottom):
 - Wrong guess = lose your bet amount
 - 50/50 odds
 
----
-
-## 🗂️ Project Structure
-
-```
-.
-├── Gamble.java       # Console version
-├── GambleGUI.java    # GUI version with animations (Swing)
-└── README.md
-```
-
 ### `GambleGUI.java` layout
 
 | Section | Purpose |
@@ -101,20 +90,7 @@ Three dice are rolled. Results are checked in priority order (top to bottom):
 
 Theme colors can be changed with the constants `BG`, `CARD`, `GOLD`, `GREEN` and `RED` at the top of `GambleGUI.java`.
 
----
-
-## 🌿 Branches
-
-| Branch | Description |
-|---|---|
-| `original` | The original code, written by hand |
-| `advanced` | Upgraded version: betting, safe input, GUI and animations |
-
-Use the **Compare** tab on GitHub to see the differences between the two versions.
-
----
-
-## 🛠️ Future Ideas
+## Future Ideas
 
 - [ ] Sound effects
 - [ ] Save balance and high scores to a file
